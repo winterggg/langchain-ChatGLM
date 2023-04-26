@@ -5,7 +5,8 @@ from langchain.llms.utils import enforce_stop_tokens
 from transformers import AutoTokenizer, AutoModel, AutoConfig
 import torch
 from configs.model_config import LLM_DEVICE
-
+from langchain.callbacks.base import CallbackManager
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from typing import Dict, Tuple, Union, Optional
 
 DEVICE = LLM_DEVICE
@@ -54,10 +55,12 @@ class ChatGLM(LLM):
     max_token: int = 10000
     temperature: float = 0.01
     top_p = 0.9
-    history = []
+    # history = []
     tokenizer: object = None
     model: object = None
     history_len: int = 10
+    streaming: bool = True
+    callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
 
     def __init__(self):
         super().__init__()
@@ -68,32 +71,48 @@ class ChatGLM(LLM):
 
     def _call(self,
               prompt: str,
+              history: List[List[str]] = [],
               stop: Optional[List[str]] = None) -> str:
-        response, _ = self.model.chat(
-            self.tokenizer,
-            prompt,
-            history=self.history[-self.history_len:] if self.history_len > 0 else [],
-            max_length=self.max_token,
-            temperature=self.temperature,
-        )
-        torch_gc()
-        if stop is not None:
-            response = enforce_stop_tokens(response, stop)
-        self.history = self.history + [[None, response]]
-        return response
+        if self.streaming:
+            for inum, (stream_resp, _) in enumerate(self.model.stream_chat(
+                    self.tokenizer,
+                    prompt,
+                    history=history[-self.history_len:-1] if self.history_len > 0 else [],
+                    max_length=self.max_token,
+                    temperature=self.temperature,
+            )):
+                if inum == 0:
+                    history += [[prompt, stream_resp]]
+                else:
+                    history[-1] = [prompt, stream_resp]
+                yield stream_resp, history
 
-    def chat(self,
-             prompt: str) -> str:
-        response, _ = self.model.chat(
-            self.tokenizer,
-            prompt,
-            history=self.history[-self.history_len:] if self.history_len > 0 else [],
-            max_length=self.max_token,
-            temperature=self.temperature,
-        )
-        torch_gc()
-        self.history = self.history + [[None, response]]
-        return response
+        else:
+            response, _ = self.model.chat(
+                self.tokenizer,
+                prompt,
+                history=history[-self.history_len:] if self.history_len > 0 else [],
+                max_length=self.max_token,
+                temperature=self.temperature,
+            )
+            torch_gc()
+            if stop is not None:
+                response = enforce_stop_tokens(response, stop)
+            history = history + [[None, response]]
+            return response, history
+
+    # def chat(self,
+    #          prompt: str) -> str:
+    #     response, _ = self.model.chat(
+    #         self.tokenizer,
+    #         prompt,
+    #         history=self.history[-self.history_len:] if self.history_len > 0 else [],
+    #         max_length=self.max_token,
+    #         temperature=self.temperature,
+    #     )
+    #     torch_gc()
+    #     self.history = self.history + [[None, response]]
+    #     return response
 
     def load_model(self,
                    model_name_or_path: str = "THUDM/chatglm-6b",
@@ -135,7 +154,13 @@ class ChatGLM(LLM):
             else:
                 from accelerate import dispatch_model
 
-                model = AutoModel.from_pretrained(model_name_or_path, trust_remote_code=True, **kwargs).half()
+                model = (
+                    AutoModel.from_pretrained(
+                        model_name_or_path,
+                        trust_remote_code=True,
+                        config=model_config,
+                        **kwargs)
+                    .half())
                 # 可传入device_map自定义每张卡的部署情况
                 if device_map is None:
                     device_map = auto_configure_device_map(num_gpus)
@@ -146,7 +171,8 @@ class ChatGLM(LLM):
                 AutoModel.from_pretrained(
                     model_name_or_path,
                     config=model_config,
-                    trust_remote_code=True)
+                    trust_remote_code=True,
+                    **kwargs)
                 .float()
                 .to(llm_device)
             )
