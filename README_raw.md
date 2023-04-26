@@ -66,7 +66,7 @@ $ docker run -d --restart=always --name chatglm -p 7860:7860 -v /www/wwwroot/cod
 
 > 注：鉴于环境部署过程中可能遇到问题，建议首先测试命令行脚本。建议命令行脚本测试可正常运行后再运行 Web UI。
 
-执行 [knowledge_based_chatglm.py](cli_demo.py) 脚本体验**命令行交互**：
+执行 [cli_demo.py](cli_demo.py) 脚本体验**命令行交互**：
 ```shell
 $ python cli_demo.py
 ```
@@ -83,9 +83,11 @@ $ python webui.py
 ![webui](img/webui_0419.png)
 Web UI 可以实现如下功能：
 
-1. 运行前自动读取`configs/model_config.py`中`LLM`及`Embedding`模型枚举及默认模型设置运行模型，如需重新加载模型，可在界面重新选择后点击`重新加载模型`进行模型加载；
-2. 可手动调节保留对话历史长度，可根据显存大小自行调节；
-3. 添加上传文件功能，通过下拉框选择已上传的文件，点击`加载文件`按钮，过程中可随时更换加载的文件。
+1. 运行前自动读取`configs/model_config.py`中`LLM`及`Embedding`模型枚举及默认模型设置运行模型，如需重新加载模型，可在 `模型配置` 标签页重新选择后点击 `重新加载模型` 进行模型加载；
+2. 可手动调节保留对话历史长度、匹配知识库文段数量，可根据显存大小自行调节；
+3. 具备模式选择功能，可选择 `LLM对话` 与 `知识库问答` 模式进行对话，支持流式对话；
+4. 添加 `配置知识库` 功能，支持选择已有知识库或新建知识库，并可向知识库中**新增**上传文件/文件夹，使用文件上传组件选择好文件后点击 `上传文件并加载知识库`，会将所选上传文档数据加载至知识库中，并基于更新后知识库进行问答；
+5. 后续版本中将会增加对知识库的修改或删除，及知识库中已导入文件的查看。
 
 ### 常见问题
 
@@ -125,13 +127,21 @@ Web UI 可以实现如下功能：
 
 - [ ] Langchain 应用
   - [x] 接入非结构化文档（已支持 md、pdf、docx、txt 文件格式）
-  - [ ] 搜索引擎与本地网页
+  - [ ] 搜索引擎与本地网页接入
+  - [ ] 结构化数据接入（如 csv、Excel、SQL 等）
+  - [ ] 知识图谱/图数据库接入
   - [ ] Agent 实现
 - [ ] 增加更多 LLM 模型支持
-  - [x] THUDM/chatglm-6b
-  - [x] THUDM/chatglm-6b-int4
-  - [x] THUDM/chatglm-6b-int4-qe
-  - [x] ClueAI/ChatYuan-large-v2
+  - [x] [THUDM/chatglm-6b](https://huggingface.co/THUDM/chatglm-6b)
+  - [x] [THUDM/chatglm-6b-int8](https://huggingface.co/THUDM/chatglm-6b-int8)
+  - [x] [THUDM/chatglm-6b-int4](https://huggingface.co/THUDM/chatglm-6b-int4)
+  - [x] [THUDM/chatglm-6b-int4-qe](https://huggingface.co/THUDM/chatglm-6b-int4-qe)
+  - [x] [ClueAI/ChatYuan-large-v2](https://huggingface.co/ClueAI/ChatYuan-large-v2)
+- [ ] 增加更多 Embedding 模型支持
+  - [x] [nghuyong/ernie-3.0-nano-zh](https://huggingface.co/nghuyong/ernie-3.0-nano-zh)
+  - [x] [nghuyong/ernie-3.0-base-zh](https://huggingface.co/nghuyong/ernie-3.0-base-zh)
+  - [x] [shibing624/text2vec-base-chinese](https://huggingface.co/shibing624/text2vec-base-chinese)
+  - [x] [GanymedeNil/text2vec-large-chinese](https://huggingface.co/GanymedeNil/text2vec-large-chinese)
 - [ ] Web UI
   - [x] 利用 gradio 实现 Web UI DEMO
   - [x] 添加输出内容及错误提示
@@ -142,7 +152,7 @@ Web UI 可以实现如下功能：
     - [ ] 删除知识库中文件
   - [ ] 利用 streamlit 实现 Web UI Demo
 - [ ] 增加 API 支持
-  - [x] 利用 fastapi 实现 API 部署方式
+  - [ ] 利用 fastapi 实现 API 部署方式
   - [ ] 实现调用 API 的 Web UI Demo
 
 ## 项目交流群
