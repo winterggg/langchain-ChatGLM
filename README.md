@@ -16,15 +16,5 @@ PROMPT_TEMPLATE = """
 如果这些信息并不足以回答这个问题，那么请回答：“对不起，我无法根据提供的信息回答这个问题。可能需要更多的相关信息。” 请尽量避免在回答中添加任何基于猜测或创作的内容。所有的回答都应该以中文提供。
 """
 ```
-安装完成后，可以使用以下命令编译镜像和启动容器：
-```
-docker build -f Dockerfile-cuda -t chatglm-cuda:latest .
-docker run --gpus all -d --name chatglm -p 7860:7860  chatglm-cuda:latest
-
-#若要使用离线模型，请配置好模型路径，然后此repo挂载到Container
-docker run --gpus all -d --name chatglm -p 7860:7860 -v ~/github/langchain-ChatGLM:/chatGLM  chatglm-cuda:latest
-```
-
-
 
 [项目原始的README.md](./README_raw.md)
