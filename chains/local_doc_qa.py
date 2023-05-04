@@ -83,11 +83,11 @@ def similarity_search_with_score_by_vector(
         id_set.add(i)
         docs_len = len(doc.page_content)
         for k in range(1, store_len):
+            if i + k >= store_len and i - k < 0:
+                  break
+            
             break_flag = False
             for l in [i + k, i - k]:
-                if i + k >= store_len and i - k < 0:
-                  break
-                
                 if 0 <= l < len(self.index_to_docstore_id):
                     _id0 = self.index_to_docstore_id[l]
                     doc0 = self.docstore.search(_id0)
