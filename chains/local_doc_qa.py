@@ -73,6 +73,7 @@ def similarity_search_with_score_by_vector(
     scores, indices = self.index.search(np.array([embedding], dtype=np.float32), k)
     docs = []
     id_set = set()
+    store_len = len(self.index_to_docstore_id)
     for j, i in enumerate(indices[0]):
         if i == -1:
             # This happens when not enough docs are returned.
@@ -81,9 +82,12 @@ def similarity_search_with_score_by_vector(
         doc = self.docstore.search(_id)
         id_set.add(i)
         docs_len = len(doc.page_content)
-        for k in range(1, max(i, len(docs) - i)):
+        for k in range(1, store_len):
             break_flag = False
             for l in [i + k, i - k]:
+                if i + k >= store_len and i - k < 0:
+                  break
+                
                 if 0 <= l < len(self.index_to_docstore_id):
                     _id0 = self.index_to_docstore_id[l]
                     doc0 = self.docstore.search(_id0)
