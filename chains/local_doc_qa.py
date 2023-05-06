@@ -10,11 +10,6 @@ from langchain.docstore.document import Document
 import numpy as np
 from utils import torch_gc
 
-# return top-k text chunk from vector store
-VECTOR_SEARCH_TOP_K = 6
-
-# LLM input history length
-LLM_HISTORY_LEN = 3
 
 DEVICE_ = EMBEDDING_DEVICE
 DEVICE_ID = "0" if torch.cuda.is_available() else None
@@ -66,9 +61,7 @@ def seperate_list(ls: List[int]) -> List[List[int]]:
 
 
 def similarity_search_with_score_by_vector(
-        self,
-        embedding: List[float],
-        k: int = 4,
+        self, embedding: List[float], k: int = 4,
 ) -> List[Tuple[Document, float]]:
     scores, indices = self.index.search(np.array([embedding], dtype=np.float32), k)
     docs = []
@@ -82,10 +75,7 @@ def similarity_search_with_score_by_vector(
         doc = self.docstore.search(_id)
         id_set.add(i)
         docs_len = len(doc.page_content)
-        for k in range(1, store_len):
-            if i + k >= store_len and i - k < 0:
-                  break
-            
+        for k in range(1, max(i, store_len-i)):
             break_flag = False
             for l in [i + k, i - k]:
                 if 0 <= l < len(self.index_to_docstore_id):
@@ -113,7 +103,7 @@ def similarity_search_with_score_by_vector(
         if not isinstance(doc, Document):
             raise ValueError(f"Could not find document for id {_id}, got {doc}")
         docs.append((doc, scores[0][j]))
-    torch_gc(DEVICE)
+    torch_gc()
     return docs
 
 
@@ -130,12 +120,12 @@ class LocalDocQA:
                  llm_model: str = LLM_MODEL,
                  llm_device=LLM_DEVICE,
                  top_k=VECTOR_SEARCH_TOP_K,
-                 use_ptuning_v2: bool = USE_PTUNING_V2
+                 use_ptuning_v2: bool = USE_PTUNING_V2,
+                 use_lora: bool = USE_LORA,
                  ):
         self.llm = ChatGLM()
         self.llm.load_model(model_name_or_path=llm_model_dict[llm_model],
-                            llm_device=llm_device,
-                            use_ptuning_v2=use_ptuning_v2)
+                            llm_device=llm_device, use_ptuning_v2=use_ptuning_v2, use_lora=use_lora)
         self.llm.history_len = llm_history_len
 
         self.embeddings = HuggingFaceEmbeddings(model_name=embedding_model_dict[embedding_model],
@@ -185,12 +175,13 @@ class LocalDocQA:
             if vs_path and os.path.isdir(vs_path):
                 vector_store = FAISS.load_local(vs_path, self.embeddings)
                 vector_store.add_documents(docs)
-                torch_gc(DEVICE)
+                torch_gc()
             else:
                 if not vs_path:
-                    vs_path = f"""{VS_ROOT_PATH}{os.path.splitext(file)[0]}_FAISS_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}"""
+                    vs_path = os.path.join(VS_ROOT_PATH,
+                                           f"""{os.path.splitext(file)[0]}_FAISS_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}""")
                 vector_store = FAISS.from_documents(docs, self.embeddings)
-                torch_gc(DEVICE)
+                torch_gc()
 
             vector_store.save_local(vs_path)
             return vs_path, loaded_files
@@ -209,6 +200,7 @@ class LocalDocQA:
         related_docs_with_score = vector_store.similarity_search_with_score(query,
                                                                             k=self.top_k)
         related_docs = get_docs_with_score(related_docs_with_score)
+        torch_gc()
         prompt = generate_prompt(related_docs, query)
 
         # if streaming:
@@ -223,11 +215,13 @@ class LocalDocQA:
         for result, history in self.llm._call(prompt=prompt,
                                               history=chat_history,
                                               streaming=streaming):
+            torch_gc()
             history[-1][0] = query
             response = {"query": query,
                         "result": result,
                         "source_documents": related_docs}
             yield response, history
+            torch_gc()
 
 
 if __name__ == "__main__":
@@ -247,9 +241,4 @@ if __name__ == "__main__":
                    for inum, doc in
                    enumerate(resp["source_documents"])]
     print("\n\n" + "\n\n".join(source_text))
-    # for resp, history in local_doc_qa.get_knowledge_based_answer(query=query,
-    #                                                              vs_path=vs_path,
-    #                                                              chat_history=[],
-    #                                                              streaming=False):
-    #     print(resp["result"])
     pass
